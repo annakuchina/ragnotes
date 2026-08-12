@@ -13,7 +13,9 @@ Main endpoints:
   POST   /upload-file         take an uploaded .txt file, chunk it, embed it, store it
   GET    /documents           list a session's uploaded documents
   DELETE /documents/{name}    delete a document and all its chunks, scoped to a session
-  POST   /ask                 take a question, retrieve relevant chunks (scoped to a session), generate an answer
+  POST   /ask                 take a question, retrieve relevant chunks (scoped to a session), generate an answer, and save both to history
+  GET    /conversation        load a session's saved question/answer history
+  DELETE /conversation        clear a session's saved question/answer history
 
 Run with: uvicorn main:app --reload
 Docs at: http://localhost:8000/docs
@@ -82,6 +84,16 @@ class DocumentsResponse(BaseModel):
     documents: list[str]
 
 
+class ConversationMessage(BaseModel):
+    role: str
+    content: str
+    sources: Optional[list[dict]] = None
+
+
+class ConversationResponse(BaseModel):
+    messages: list[ConversationMessage]
+
+
 def get_embedding(text: str) -> list[float]:
     response = client.embeddings.create(
         model="text-embedding-3-small",
@@ -148,6 +160,28 @@ def list_documents(session_id: str) -> list[str]:
         if name not in seen:
             seen.append(name)
     return seen
+
+
+def save_conversation_message(session_id: str, role: str, content: str, sources: Optional[list[dict]] = None):
+    supabase.table("conversation_messages").insert({
+        "session_id": session_id,
+        "role": role,
+        "content": content,
+        "sources": sources,
+    }).execute()
+
+
+def list_conversation(session_id: str) -> list[dict]:
+    result = supabase.table("conversation_messages") \
+        .select("role, content, sources") \
+        .eq("session_id", session_id) \
+        .order("created_at") \
+        .execute()
+    return result.data
+
+
+def clear_conversation(session_id: str):
+    supabase.table("conversation_messages").delete().eq("session_id", session_id).execute()
 
 
 def search_chunks(question: str, session_id: str, top_k: int = 3) -> list[dict]:
@@ -278,6 +312,28 @@ def remove_document(source_document: str, session_id: str = Header(None, alias="
     return {"status": "deleted", "source_document": source_document}
 
 
+@app.get("/conversation", response_model=ConversationResponse)
+def get_conversation(session_id: str = Header(None, alias="X-Session-Id")):
+    session_id = get_session_id(session_id)
+    try:
+        messages = list_conversation(session_id)
+    except Exception as e:
+        logger.error(f"Failed to load conversation for session: {e}")
+        raise HTTPException(status_code=500, detail="Failed to load conversation history.")
+    return ConversationResponse(messages=messages)
+
+
+@app.delete("/conversation")
+def delete_conversation(session_id: str = Header(None, alias="X-Session-Id")):
+    session_id = get_session_id(session_id)
+    try:
+        clear_conversation(session_id)
+    except Exception as e:
+        logger.error(f"Failed to clear conversation for session: {e}")
+        raise HTTPException(status_code=500, detail="Failed to clear conversation history.")
+    return {"status": "cleared"}
+
+
 @app.post("/ask", response_model=AskResponse)
 def ask_question(body: AskRequest, session_id: str = Header(None, alias="X-Session-Id")):
     session_id = get_session_id(session_id)
@@ -286,16 +342,25 @@ def ask_question(body: AskRequest, session_id: str = Header(None, alias="X-Sessi
         raise HTTPException(status_code=400, detail="Question cannot be empty")
 
     try:
+        save_conversation_message(session_id, "question", body.question)
+    except Exception as e:
+        # Not fatal, if history-saving fails, the actual answer should
+        # still be attempted rather than blocking the user's request.
+        logger.warning(f"Failed to save question to history: {e}")
+
+    try:
         chunks = search_chunks(body.question, session_id, top_k=body.top_k)
     except Exception as e:
         logger.error(f"Retrieval failed for question '{body.question}': {e}")
         raise HTTPException(status_code=500, detail="Failed to search stored documents.")
 
     if not chunks:
-        return AskResponse(
-            answer="No documents have been uploaded yet, so I have nothing to search. Upload a document first.",
-            sources=[],
-        )
+        answer = "No documents have been uploaded yet, so I have nothing to search. Upload a document first."
+        try:
+            save_conversation_message(session_id, "answer", answer, [])
+        except Exception as e:
+            logger.warning(f"Failed to save answer to history: {e}")
+        return AskResponse(answer=answer, sources=[])
 
     try:
         answer = generate_answer(body.question, chunks)
@@ -304,5 +369,10 @@ def ask_question(body: AskRequest, session_id: str = Header(None, alias="X-Sessi
     except (APITimeoutError, APIError) as e:
         logger.error(f"Generation failed for question '{body.question}': {e}")
         raise HTTPException(status_code=502, detail="Failed to generate an answer. Please try again.")
+
+    try:
+        save_conversation_message(session_id, "answer", answer, chunks)
+    except Exception as e:
+        logger.warning(f"Failed to save answer to history: {e}")
 
     return AskResponse(answer=answer, sources=chunks)

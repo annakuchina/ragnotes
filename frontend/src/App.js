@@ -5,6 +5,12 @@ const ACCENT = "#D85A30";
 const ACCENT_BG = "#FAECE7";
 const ACCENT_DARK = "#712B13";
 const SESSION_KEY = "ragnotes_session_id";
+const EXAMPLE_DOC_NAME = "example_octopus.txt";
+const EXAMPLE_DOC_TEXT = `Octopuses are widely considered among the most intelligent invertebrates on Earth, despite having a nervous system radically different from vertebrates. Roughly two-thirds of an octopus's neurons are located not in its central brain but distributed throughout its eight arms, allowing each arm to process sensory information and make certain movements semi-independently, even after being separated from the body in laboratory studies. This decentralized nervous system lets an octopus's arms taste and touch simultaneously, since their skin is covered in chemoreceptors as well as touch-sensitive suckers.
+
+In captivity, octopuses have demonstrated an ability to solve puzzles, open childproof jars to reach food, and navigate mazes, and some individuals have been observed using coconut shells or discarded shells as portable shelters, a behavior researchers consider a rare example of tool use in invertebrates. Octopuses also display short-term problem-solving and observational learning, in some experiments appearing to learn a task faster after watching another octopus complete it first. Despite this intelligence, most octopus species live only one to two years, and nearly all species die shortly after reproducing, meaning individual octopuses never have the chance to pass learned knowledge to offspring or other members of a longer-lived social group.`;
+const EXAMPLE_QUESTION =
+  "How is an octopus's nervous system different from a vertebrate's?";
 
 function getSessionId() {
   let id = localStorage.getItem(SESSION_KEY);
@@ -61,7 +67,26 @@ export default function App() {
         setDocumentsLoading(false);
       }
     }
+    async function loadConversation() {
+      try {
+        const res = await fetch(`${BACKEND_URL}/conversation`, {
+          headers: authHeaders(),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const loaded = (data.messages || []).map((m) => ({
+            role: m.role,
+            text: m.content,
+            sources: m.sources || [],
+          }));
+          setMessages(loaded);
+        }
+      } catch (e) {
+        // Silent fail, an empty conversation is a fine fallback.
+      }
+    }
     loadDocuments();
+    loadConversation();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -209,6 +234,63 @@ export default function App() {
     }
   }
 
+  async function handleTryExample() {
+    setUploadError("");
+    setAskError("");
+    setUploading(true);
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/upload`, {
+        method: "POST",
+        headers: authHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({
+          source_document: EXAMPLE_DOC_NAME,
+          text: EXAMPLE_DOC_TEXT,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Failed to upload example");
+      setDocuments((prev) => {
+        const withoutDup = prev.filter((d) => d !== data.source_document);
+        return [...withoutDup, data.source_document];
+      });
+      setUploadSuccess(
+        data.replaced
+          ? `Replaced ${data.source_document}`
+          : `Uploaded ${data.source_document}`,
+      );
+      setTimeout(() => setUploadSuccess(""), 3000);
+    } catch (e) {
+      setUploadError(
+        e.message || "Couldn't upload example. Is the backend running?",
+      );
+      setUploading(false);
+      return;
+    }
+    setUploading(false);
+
+    const q = EXAMPLE_QUESTION;
+    setMessages((prev) => [...prev, { role: "question", text: q }]);
+    setAsking(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/ask`, {
+        method: "POST",
+        headers: authHeaders({ "Content-Type": "application/json" }),
+        body: JSON.stringify({ question: q }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || "Something went wrong");
+      setMessages((prev) => [
+        ...prev,
+        { role: "answer", text: data.answer, sources: data.sources || [] },
+      ]);
+    } catch (e) {
+      setAskError(e.message || "Couldn't reach the backend. Is it running?");
+    } finally {
+      setAsking(false);
+    }
+  }
+
   async function handleAsk() {
     if (!question.trim()) return;
     const q = question.trim();
@@ -232,6 +314,21 @@ export default function App() {
       setAskError(e.message || "Couldn't reach the backend. Is it running?");
     } finally {
       setAsking(false);
+    }
+  }
+
+  async function handleClearConversation() {
+    const previous = messages;
+    setMessages([]);
+    try {
+      const res = await fetch(`${BACKEND_URL}/conversation`, {
+        method: "DELETE",
+        headers: authHeaders(),
+      });
+      if (!res.ok) throw new Error("Failed to clear conversation");
+    } catch (e) {
+      setMessages(previous);
+      setAskError("Couldn't clear conversation. Is the backend running?");
     }
   }
 
@@ -269,6 +366,13 @@ export default function App() {
         .remove-btn:hover {
           opacity: 1;
           color: #a32d2d !important;
+        }
+        .clear-conversation-btn {
+          transition: all 0.15s ease;
+        }
+        .clear-conversation-btn:hover {
+          background: #f5f5f5 !important;
+          border-color: #b0b0b0 !important;
         }
       `}</style>
 
@@ -319,7 +423,7 @@ export default function App() {
         </div>
       )}
 
-      <header style={{ marginBottom: "1.5rem" }}>
+      <header style={{ marginBottom: "1rem" }}>
         <h1
           style={{
             fontSize: 28,
@@ -333,6 +437,29 @@ export default function App() {
           Ask questions about your own notes, grounded in what you upload.
         </p>
       </header>
+
+      <div style={{ marginBottom: "1.5rem" }}>
+        <button
+          onClick={handleTryExample}
+          className="paste-btn"
+          style={{
+            fontSize: 13,
+            fontWeight: 500,
+            borderRadius: 8,
+            cursor: "pointer",
+            padding: "8px 14px",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 6,
+            transition: "all 0.15s ease",
+          }}>
+          <i
+            className="fa-solid fa-sparkles"
+            style={{ fontSize: 12 }}
+            aria-hidden="true"></i>
+          Try an example
+        </button>
+      </div>
 
       <div
         style={{
@@ -561,6 +688,40 @@ export default function App() {
             height: 560,
             boxSizing: "border-box",
           }}>
+          {messages.length > 0 && (
+            <div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  padding: "12px 12px 10px",
+                }}>
+                <button
+                  onClick={handleClearConversation}
+                  className="clear-conversation-btn"
+                  style={{
+                    fontSize: 12,
+                    fontWeight: 500,
+                    color: "#4a4a4a",
+                    background: "white",
+                    border: "1px solid #d4d4d4",
+                    borderRadius: 8,
+                    padding: "6px 12px",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 5,
+                  }}>
+                  <i
+                    className="fa-solid fa-trash-can"
+                    style={{ fontSize: 12 }}
+                    aria-hidden="true"></i>
+                  Clear conversation
+                </button>
+              </div>
+              <div style={{ borderBottom: "0.5px solid #e0e0e0" }} />
+            </div>
+          )}
           <div
             style={{
               flex: 1,
