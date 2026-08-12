@@ -1,4 +1,4 @@
-# RagNotes
+# Rag Notes
 
 A RAG (Retrieval-Augmented Generation) app that answers questions using your own uploaded notes: not general AI knowledge. Upload a document, ask a question, and get an answer grounded in and cited from the actual content you provided. If your notes don't contain enough information to answer, it says so honestly instead of guessing.
 
