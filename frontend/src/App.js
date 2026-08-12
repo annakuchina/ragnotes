@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 
-const BACKEND_URL = "http://localhost:8000";
+const BACKEND_URL = "https://ragnotes-backend-zxrg.onrender.com";
 const ACCENT = "#D85A30";
 const ACCENT_BG = "#FAECE7";
 const ACCENT_DARK = "#712B13";
