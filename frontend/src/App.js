@@ -472,7 +472,7 @@ export default function App() {
             value={pasteName}
             onChange={(e) => setPasteName(e.target.value)}
             style={{
-              fontSize: 14,
+              fontSize: 16,
               padding: "6px 8px",
               borderRadius: 6,
               border: "0.5px solid #d4d4d4",
@@ -484,7 +484,7 @@ export default function App() {
             onChange={(e) => setPasteText(e.target.value)}
             rows={5}
             style={{
-              fontSize: 14,
+              fontSize: 16,
               padding: "6px 8px",
               borderRadius: 6,
               border: "0.5px solid #d4d4d4",
@@ -562,7 +562,7 @@ export default function App() {
         className="fa-solid fa-sparkles"
         style={{ fontSize: 12 }}
         aria-hidden="true"></i>
-      Try an example
+      {isMobile ? "Example" : "Try an example"}
     </button>
   );
 
@@ -718,7 +718,7 @@ export default function App() {
           placeholder="Ask a question about your notes..."
           style={{
             flex: 1,
-            fontSize: 15,
+            fontSize: 16,
             padding: "9px 12px",
             borderRadius: 20,
             border: "0.5px solid #d4d4d4",
