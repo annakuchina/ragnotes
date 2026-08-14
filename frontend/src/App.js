@@ -26,6 +26,8 @@ export default function App() {
 
   const [documents, setDocuments] = useState([]);
   const [documentsLoading, setDocumentsLoading] = useState(true);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 720);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [uploadSuccess, setUploadSuccess] = useState("");
@@ -88,6 +90,14 @@ export default function App() {
     loadDocuments();
     loadConversation();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    function handleResize() {
+      setIsMobile(window.innerWidth < 720);
+    }
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   useEffect(() => {
@@ -332,6 +342,660 @@ export default function App() {
     }
   }
 
+  const notesPanelContent = (
+    <>
+      {documents.length > 0 && (
+        <div style={{ marginBottom: 14 }}>
+          <p
+            style={{
+              fontSize: 11,
+              color: "#9a9a9a",
+              margin: "0 0 6px",
+              textTransform: "uppercase",
+              letterSpacing: "0.03em",
+            }}>
+            Uploaded
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {documents.map((doc) => (
+              <div
+                key={doc}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  background: "white",
+                  border: "0.5px solid #e5e5e5",
+                  borderRadius: 8,
+                  padding: "8px 10px",
+                }}>
+                <i
+                  className="fa-solid fa-file-lines"
+                  style={{ fontSize: 14, color: ACCENT_DARK, flexShrink: 0 }}
+                  aria-hidden="true"></i>
+                <span
+                  style={{
+                    fontSize: 13,
+                    flex: 1,
+                    color: "#1a1a1a",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}>
+                  {doc}
+                </span>
+                <button
+                  onClick={() => handleRemoveDocument(doc)}
+                  className="remove-btn"
+                  aria-label={`Remove ${doc}`}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "#6b6b6b",
+                    padding: 2,
+                    display: "flex",
+                  }}>
+                  <i
+                    className="fa-solid fa-xmark"
+                    style={{ fontSize: 13 }}
+                    aria-hidden="true"></i>
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div
+        onClick={() => fileInputRef.current?.click()}
+        style={{
+          border:
+            documents.length === 0 && !documentsLoading
+              ? `1px dashed ${ACCENT}`
+              : "1px dashed #c4c4c4",
+          background:
+            documents.length === 0 && !documentsLoading
+              ? "white"
+              : "transparent",
+          borderRadius: 8,
+          padding: "18px 12px",
+          textAlign: "center",
+          cursor: "pointer",
+          fontSize: 14,
+          color:
+            documents.length === 0 && !documentsLoading
+              ? ACCENT_DARK
+              : "#5a5a5a",
+          marginBottom: 10,
+        }}>
+        {uploading ? "Uploading..." : "Drop a .txt file or click to browse"}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".txt"
+          style={{ display: "none" }}
+          onChange={(e) => {
+            const file = e.target.files[0];
+            if (file) handleFileUpload(file);
+            e.target.value = "";
+          }}
+        />
+      </div>
+
+      <button
+        onClick={() => setShowPaste((s) => !s)}
+        className="paste-btn"
+        style={{
+          width: "100%",
+          fontSize: 14,
+          fontWeight: 500,
+          borderRadius: 8,
+          cursor: "pointer",
+          padding: "9px 12px",
+          textAlign: "center",
+          transition: "all 0.15s ease",
+        }}>
+        {showPaste ? "Cancel" : "Paste text instead"}
+      </button>
+
+      {showPaste && (
+        <div
+          style={{
+            marginTop: 8,
+            display: "flex",
+            flexDirection: "column",
+            gap: 6,
+          }}>
+          <input
+            placeholder="Document name"
+            value={pasteName}
+            onChange={(e) => setPasteName(e.target.value)}
+            style={{
+              fontSize: 14,
+              padding: "6px 8px",
+              borderRadius: 6,
+              border: "0.5px solid #d4d4d4",
+            }}
+          />
+          <textarea
+            placeholder="Paste your notes here..."
+            value={pasteText}
+            onChange={(e) => setPasteText(e.target.value)}
+            rows={5}
+            style={{
+              fontSize: 14,
+              padding: "6px 8px",
+              borderRadius: 6,
+              border: "0.5px solid #d4d4d4",
+              resize: "vertical",
+              fontFamily: "inherit",
+            }}
+          />
+          <button
+            onClick={handlePasteUpload}
+            disabled={uploading}
+            style={{
+              fontSize: 14,
+              padding: "6px 10px",
+              borderRadius: 6,
+              border: "none",
+              background: ACCENT,
+              color: "white",
+              cursor: "pointer",
+              fontWeight: 500,
+            }}>
+            {uploading ? "Uploading..." : "Upload"}
+          </button>
+        </div>
+      )}
+
+      {uploadError && (
+        <p style={{ fontSize: 13, color: "#a32d2d", marginTop: 8 }}>
+          {uploadError}
+        </p>
+      )}
+      {uploadSuccess && (
+        <p
+          style={{
+            fontSize: 13,
+            color: "#0f6e56",
+            marginTop: 8,
+            display: "flex",
+            alignItems: "center",
+            gap: 5,
+          }}>
+          <i
+            className="fa-solid fa-circle-check"
+            style={{ fontSize: 12 }}
+            aria-hidden="true"></i>
+          {uploadSuccess}
+        </p>
+      )}
+
+      {!documentsLoading && documents.length === 0 && (
+        <p style={{ fontSize: 13, color: "#9a9a9a", marginTop: 12 }}>
+          No documents uploaded yet.
+        </p>
+      )}
+    </>
+  );
+
+  const exampleButton = (
+    <button
+      onClick={handleTryExample}
+      className="paste-btn"
+      style={{
+        fontSize: 13,
+        fontWeight: 500,
+        borderRadius: 8,
+        cursor: "pointer",
+        padding: "8px 14px",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        transition: "all 0.15s ease",
+        flex: isMobile ? 1 : undefined,
+        justifyContent: isMobile ? "center" : undefined,
+      }}>
+      <i
+        className="fa-solid fa-sparkles"
+        style={{ fontSize: 12 }}
+        aria-hidden="true"></i>
+      Try an example
+    </button>
+  );
+
+  const chatPanel = (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        background: "#fafafa",
+        borderRadius: 12,
+        border: "0.5px solid #e5e5e5",
+        height: isMobile ? 480 : 560,
+        boxSizing: "border-box",
+      }}>
+      {messages.length > 0 && (
+        <div>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "flex-end",
+              padding: "12px 12px 10px",
+            }}>
+            <button
+              onClick={handleClearConversation}
+              className="clear-conversation-btn"
+              style={{
+                fontSize: 12,
+                fontWeight: 500,
+                color: "#4a4a4a",
+                background: "white",
+                border: "1px solid #d4d4d4",
+                borderRadius: 8,
+                padding: "6px 12px",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+              }}>
+              <i
+                className="fa-solid fa-trash-can"
+                style={{ fontSize: 12 }}
+                aria-hidden="true"></i>
+              Clear conversation
+            </button>
+          </div>
+          <div style={{ borderBottom: "0.5px solid #e0e0e0" }} />
+        </div>
+      )}
+      <div
+        style={{
+          flex: 1,
+          padding: 16,
+          overflowY: "auto",
+          display: "flex",
+          flexDirection: "column",
+          gap: 12,
+        }}>
+        {messages.length === 0 && (
+          <p
+            style={{
+              fontSize: 15,
+              color: "#4a4a4a",
+              margin: "auto",
+              textAlign: "center",
+            }}>
+            Upload a document, then ask something about it.
+          </p>
+        )}
+        {messages.map((m, i) =>
+          m.role === "question" ? (
+            <div
+              key={i}
+              style={{
+                alignSelf: "flex-end",
+                background: "#1a1a1a",
+                color: "white",
+                borderRadius: "14px 14px 2px 14px",
+                padding: "8px 12px",
+                fontSize: 15,
+                maxWidth: "75%",
+              }}>
+              {m.text}
+            </div>
+          ) : (
+            <div
+              key={i}
+              style={{
+                alignSelf: "flex-start",
+                background: "white",
+                border: "0.5px solid #e5e5e5",
+                borderRadius: "14px 14px 14px 2px",
+                padding: "10px 12px",
+                fontSize: 15,
+                maxWidth: "85%",
+                lineHeight: 1.5,
+                color: "#1a1a1a",
+              }}>
+              {m.text}
+              {m.sources && m.sources.length > 0 && (
+                <div
+                  style={{
+                    marginTop: 8,
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 4,
+                  }}>
+                  {m.sources.map((s, si) => (
+                    <span
+                      key={si}
+                      title={s.content?.slice(0, 120)}
+                      style={{
+                        fontSize: 12,
+                        background: ACCENT_BG,
+                        color: ACCENT_DARK,
+                        borderRadius: 20,
+                        padding: "2px 8px",
+                        cursor: "default",
+                      }}>
+                      {s.source_document} · {(s.similarity * 100).toFixed(0)}%
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          ),
+        )}
+        {asking && (
+          <div
+            style={{ alignSelf: "flex-start", fontSize: 14, color: "#6b6b6b" }}>
+            Thinking...
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      {askError && (
+        <p style={{ fontSize: 15, color: "#a32d2d", padding: "0 16px" }}>
+          {askError}
+        </p>
+      )}
+
+      <div
+        style={{
+          display: "flex",
+          gap: 8,
+          padding: 12,
+          borderTop: "0.5px solid #e5e5e5",
+        }}>
+        <input
+          value={question}
+          onChange={(e) => setQuestion(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleAsk()}
+          placeholder="Ask a question about your notes..."
+          style={{
+            flex: 1,
+            fontSize: 15,
+            padding: "9px 12px",
+            borderRadius: 20,
+            border: "0.5px solid #d4d4d4",
+            outline: "none",
+          }}
+        />
+        <button
+          onClick={handleAsk}
+          disabled={asking || !question.trim()}
+          className="send-btn"
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: "50%",
+            border: "none",
+            background: ACCENT,
+            color: "white",
+            cursor: asking || !question.trim() ? "default" : "pointer",
+            opacity: asking || !question.trim() ? 0.4 : 1,
+            fontSize: 15,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+            transition: "transform 0.1s ease, background 0.15s ease",
+          }}>
+          <i className="fa-solid fa-arrow-right" aria-hidden="true"></i>
+        </button>
+      </div>
+    </div>
+  );
+
+  const sharedStyles = (
+    <style>{`
+      .send-btn:not(:disabled):hover {
+        background: ${ACCENT_DARK} !important;
+        transform: scale(1.06);
+      }
+      .send-btn:not(:disabled):active {
+        transform: scale(0.94);
+      }
+      .paste-btn {
+        color: #1a1a1a !important;
+        background: white !important;
+        border: 1px solid #d4d4d4 !important;
+      }
+      .paste-btn:hover {
+        background: white !important;
+        border-color: ${ACCENT} !important;
+        color: ${ACCENT_DARK} !important;
+      }
+      .remove-btn {
+        opacity: 0.5;
+        transition: opacity 0.15s ease, color 0.15s ease;
+      }
+      .remove-btn:hover {
+        opacity: 1;
+        color: #a32d2d !important;
+      }
+      .clear-conversation-btn {
+        transition: all 0.15s ease;
+      }
+      .clear-conversation-btn:hover {
+        background: #f5f5f5 !important;
+        border-color: #b0b0b0 !important;
+      }
+      .manage-notes-btn {
+        transition: all 0.15s ease;
+      }
+      .manage-notes-btn.neutral:hover {
+        background: #f0f0f0 !important;
+      }
+      .manage-notes-btn.accented:hover {
+        background: #f5d9cc !important;
+      }
+    `}</style>
+  );
+
+  const dragOverlay = dragging && (
+    <div
+      style={{
+        position: "fixed",
+        inset: 16,
+        background: "rgba(245, 245, 243, 0.94)",
+        border: "1.5px dashed #b0b0ac",
+        borderRadius: 12,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 10,
+        zIndex: 1000,
+        pointerEvents: "none",
+      }}>
+      <div
+        style={{
+          width: 52,
+          height: 52,
+          borderRadius: "50%",
+          background: "white",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          border: "0.5px solid #e5e5e5",
+        }}>
+        <i
+          className="fa-solid fa-file-arrow-up"
+          style={{ fontSize: 22, color: "#1a1a1a" }}
+          aria-hidden="true"></i>
+      </div>
+      <p style={{ fontSize: 16, fontWeight: 600, color: "#1a1a1a", margin: 0 }}>
+        Drop your file anywhere
+      </p>
+      <p style={{ fontSize: 13, color: "#6b6b6b", margin: 0 }}>
+        .txt files only
+      </p>
+    </div>
+  );
+
+  // ---------------------------------------------------------------------
+  // MOBILE LAYOUT
+  // ---------------------------------------------------------------------
+  if (isMobile) {
+    return (
+      <div
+        style={{
+          maxWidth: 480,
+          margin: "0 auto",
+          padding: "1.25rem 1rem",
+          fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+          position: "relative",
+        }}>
+        {sharedStyles}
+        {dragOverlay}
+
+        {drawerOpen && (
+          <div
+            onClick={() => setDrawerOpen(false)}
+            style={{
+              position: "fixed",
+              inset: 0,
+              background: "rgba(0,0,0,0.35)",
+              zIndex: 900,
+            }}
+          />
+        )}
+
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            bottom: 0,
+            width: "80%",
+            maxWidth: 320,
+            background: "#fafafa",
+            boxShadow: "4px 0 20px rgba(0,0,0,0.15)",
+            padding: 18,
+            zIndex: 950,
+            overflowY: "auto",
+            boxSizing: "border-box",
+            transform: drawerOpen ? "translateX(0)" : "translateX(-105%)",
+            transition: "transform 0.25s ease",
+          }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 14,
+            }}>
+            <p
+              style={{
+                fontSize: 16,
+                fontWeight: 600,
+                margin: 0,
+                color: "#1a1a1a",
+              }}>
+              Your notes
+            </p>
+            <button
+              onClick={() => setDrawerOpen(false)}
+              aria-label="Close"
+              style={{
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+                padding: 4,
+                display: "flex",
+              }}>
+              <i
+                className="fa-solid fa-xmark"
+                style={{ fontSize: 16, color: "#1a1a1a" }}
+                aria-hidden="true"></i>
+            </button>
+          </div>
+          {notesPanelContent}
+        </div>
+
+        <p
+          style={{
+            fontSize: 19,
+            fontWeight: 600,
+            margin: "0 0 10px",
+            color: "#1a1a1a",
+          }}>
+          RAG Notes
+        </p>
+
+        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+          <button
+            onClick={() => setDrawerOpen(true)}
+            className={`manage-notes-btn ${documents.length === 0 && !documentsLoading ? "accented" : "neutral"}`}
+            disabled={documentsLoading}
+            style={{
+              fontSize: 12,
+              fontWeight: 500,
+              padding: "7px 10px",
+              borderRadius: 8,
+              cursor: documentsLoading ? "default" : "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 5,
+              flex: 1,
+              border:
+                documents.length === 0 && !documentsLoading
+                  ? `1px solid ${ACCENT}`
+                  : "1px solid #d4d4d4",
+              background:
+                documents.length === 0 && !documentsLoading
+                  ? ACCENT_BG
+                  : "#fafafa",
+              color:
+                documents.length === 0 && !documentsLoading
+                  ? ACCENT_DARK
+                  : "#1a1a1a",
+              opacity: documentsLoading ? 0.6 : 1,
+            }}>
+            {documentsLoading ? (
+              <i
+                className="fa-solid fa-spinner fa-spin"
+                style={{ fontSize: 12 }}
+                aria-hidden="true"></i>
+            ) : (
+              <i
+                className={
+                  documents.length === 0
+                    ? "fa-solid fa-file-circle-plus"
+                    : "fa-solid fa-file-lines"
+                }
+                style={{ fontSize: 13 }}
+                aria-hidden="true"></i>
+            )}
+            {documentsLoading
+              ? "Loading"
+              : documents.length === 0
+                ? "Add notes"
+                : `Manage (${documents.length})`}
+            {documents.length > 0 && !documentsLoading && (
+              <i
+                className="fa-solid fa-chevron-right"
+                style={{ fontSize: 10, color: "#9a9a9a" }}
+                aria-hidden="true"></i>
+            )}
+          </button>
+          {exampleButton}
+        </div>
+
+        {chatPanel}
+      </div>
+    );
+  }
+
+  // ---------------------------------------------------------------------
+  // DESKTOP LAYOUT
+  // ---------------------------------------------------------------------
   return (
     <div
       style={{
@@ -341,87 +1005,8 @@ export default function App() {
         fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
         position: "relative",
       }}>
-      <style>{`
-        .send-btn:not(:disabled):hover {
-          background: ${ACCENT_DARK} !important;
-          transform: scale(1.06);
-        }
-        .send-btn:not(:disabled):active {
-          transform: scale(0.94);
-        }
-        .paste-btn {
-          color: #1a1a1a !important;
-          background: white !important;
-          border: 1px solid #d4d4d4 !important;
-        }
-        .paste-btn:hover {
-          background: ${ACCENT_BG} !important;
-          border-color: ${ACCENT} !important;
-          color: #1a1a1a !important;
-        }
-        .remove-btn {
-          opacity: 0.5;
-          transition: opacity 0.15s ease, color 0.15s ease;
-        }
-        .remove-btn:hover {
-          opacity: 1;
-          color: #a32d2d !important;
-        }
-        .clear-conversation-btn {
-          transition: all 0.15s ease;
-        }
-        .clear-conversation-btn:hover {
-          background: #f5f5f5 !important;
-          border-color: #b0b0b0 !important;
-        }
-      `}</style>
-
-      {dragging && (
-        <div
-          style={{
-            position: "fixed",
-            inset: 16,
-            background: "rgba(245, 245, 243, 0.94)",
-            border: "1.5px dashed #b0b0ac",
-            borderRadius: 12,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 10,
-            zIndex: 1000,
-            pointerEvents: "none",
-          }}>
-          <div
-            style={{
-              width: 52,
-              height: 52,
-              borderRadius: "50%",
-              background: "white",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              border: "0.5px solid #e5e5e5",
-            }}>
-            <i
-              className="fa-solid fa-file-arrow-up"
-              style={{ fontSize: 22, color: "#1a1a1a" }}
-              aria-hidden="true"></i>
-          </div>
-          <p
-            style={{
-              fontSize: 16,
-              fontWeight: 600,
-              color: "#1a1a1a",
-              margin: 0,
-            }}>
-            Drop your file anywhere
-          </p>
-          <p style={{ fontSize: 13, color: "#6b6b6b", margin: 0 }}>
-            .txt files only
-          </p>
-        </div>
-      )}
+      {sharedStyles}
+      {dragOverlay}
 
       <header style={{ marginBottom: "1rem" }}>
         <h1
@@ -438,28 +1023,7 @@ export default function App() {
         </p>
       </header>
 
-      <div style={{ marginBottom: "1.5rem" }}>
-        <button
-          onClick={handleTryExample}
-          className="paste-btn"
-          style={{
-            fontSize: 13,
-            fontWeight: 500,
-            borderRadius: 8,
-            cursor: "pointer",
-            padding: "8px 14px",
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            transition: "all 0.15s ease",
-          }}>
-          <i
-            className="fa-solid fa-sparkles"
-            style={{ fontSize: 12 }}
-            aria-hidden="true"></i>
-          Try an example
-        </button>
-      </div>
+      <div style={{ marginBottom: "1.5rem" }}>{exampleButton}</div>
 
       <div
         style={{
@@ -470,395 +1034,50 @@ export default function App() {
         }}>
         <div
           style={{
-            background: "#fafafa",
+            background:
+              documents.length === 0 && !documentsLoading
+                ? ACCENT_BG
+                : "#fafafa",
             borderRadius: 12,
             padding: 18,
-            border: "0.5px solid #e5e5e5",
+            border:
+              documents.length === 0 && !documentsLoading
+                ? `1px solid ${ACCENT}`
+                : "0.5px solid #e5e5e5",
             height: "100%",
             overflowY: "auto",
             boxSizing: "border-box",
+            display: documentsLoading ? "flex" : "block",
+            alignItems: documentsLoading ? "center" : undefined,
+            justifyContent: documentsLoading ? "center" : undefined,
           }}>
-          <p
-            style={{
-              fontSize: 16,
-              fontWeight: 600,
-              margin: "0 0 14px",
-              color: "#1a1a1a",
-            }}>
-            Notes
-          </p>
-
-          {documents.length > 0 && (
-            <div style={{ marginBottom: 14 }}>
+          {documentsLoading ? (
+            <div style={{ textAlign: "center" }}>
+              <i
+                className="fa-solid fa-spinner fa-spin"
+                style={{ fontSize: 20, color: "#9a9a9a" }}
+                aria-hidden="true"></i>
+              <p style={{ fontSize: 13, color: "#9a9a9a", margin: "10px 0 0" }}>
+                Loading notes...
+              </p>
+            </div>
+          ) : (
+            <>
               <p
                 style={{
-                  fontSize: 11,
-                  color: "#9a9a9a",
-                  margin: "0 0 6px",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.03em",
+                  fontSize: 16,
+                  fontWeight: 600,
+                  margin: "0 0 14px",
+                  color: documents.length === 0 ? ACCENT_DARK : "#1a1a1a",
                 }}>
-                Uploaded
+                Notes
               </p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                {documents.map((doc) => (
-                  <div
-                    key={doc}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      background: "white",
-                      border: "0.5px solid #e5e5e5",
-                      borderRadius: 8,
-                      padding: "8px 10px",
-                    }}>
-                    <i
-                      className="fa-solid fa-file-lines"
-                      style={{
-                        fontSize: 14,
-                        color: ACCENT_DARK,
-                        flexShrink: 0,
-                      }}
-                      aria-hidden="true"></i>
-                    <span
-                      style={{
-                        fontSize: 13,
-                        flex: 1,
-                        color: "#1a1a1a",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                      }}>
-                      {doc}
-                    </span>
-                    <button
-                      onClick={() => handleRemoveDocument(doc)}
-                      className="remove-btn"
-                      aria-label={`Remove ${doc}`}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        cursor: "pointer",
-                        color: "#6b6b6b",
-                        padding: 2,
-                        display: "flex",
-                      }}>
-                      <i
-                        className="fa-solid fa-xmark"
-                        style={{ fontSize: 13 }}
-                        aria-hidden="true"></i>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            style={{
-              border: "1px dashed #c4c4c4",
-              borderRadius: 8,
-              padding: "18px 12px",
-              textAlign: "center",
-              cursor: "pointer",
-              fontSize: 14,
-              color: "#5a5a5a",
-              marginBottom: 10,
-            }}>
-            {uploading ? "Uploading..." : "Drop a .txt file or click to browse"}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".txt"
-              style={{ display: "none" }}
-              onChange={(e) => {
-                const file = e.target.files[0];
-                if (file) handleFileUpload(file);
-                e.target.value = "";
-              }}
-            />
-          </div>
-
-          <button
-            onClick={() => setShowPaste((s) => !s)}
-            className="paste-btn"
-            style={{
-              width: "100%",
-              fontSize: 14,
-              fontWeight: 500,
-              borderRadius: 8,
-              cursor: "pointer",
-              padding: "9px 12px",
-              textAlign: "center",
-              transition: "all 0.15s ease",
-            }}>
-            {showPaste ? "Cancel" : "Paste text instead"}
-          </button>
-
-          {showPaste && (
-            <div
-              style={{
-                marginTop: 8,
-                display: "flex",
-                flexDirection: "column",
-                gap: 6,
-              }}>
-              <input
-                placeholder="Document name"
-                value={pasteName}
-                onChange={(e) => setPasteName(e.target.value)}
-                style={{
-                  fontSize: 14,
-                  padding: "6px 8px",
-                  borderRadius: 6,
-                  border: "0.5px solid #d4d4d4",
-                }}
-              />
-              <textarea
-                placeholder="Paste your notes here..."
-                value={pasteText}
-                onChange={(e) => setPasteText(e.target.value)}
-                rows={5}
-                style={{
-                  fontSize: 14,
-                  padding: "6px 8px",
-                  borderRadius: 6,
-                  border: "0.5px solid #d4d4d4",
-                  resize: "vertical",
-                  fontFamily: "inherit",
-                }}
-              />
-              <button
-                onClick={handlePasteUpload}
-                disabled={uploading}
-                style={{
-                  fontSize: 14,
-                  padding: "6px 10px",
-                  borderRadius: 6,
-                  border: "none",
-                  background: ACCENT,
-                  color: "white",
-                  cursor: "pointer",
-                  fontWeight: 500,
-                }}>
-                {uploading ? "Uploading..." : "Upload"}
-              </button>
-            </div>
-          )}
-
-          {uploadError && (
-            <p style={{ fontSize: 13, color: "#a32d2d", marginTop: 8 }}>
-              {uploadError}
-            </p>
-          )}
-          {uploadSuccess && (
-            <p
-              style={{
-                fontSize: 13,
-                color: "#0f6e56",
-                marginTop: 8,
-                display: "flex",
-                alignItems: "center",
-                gap: 5,
-              }}>
-              <i
-                className="fa-solid fa-circle-check"
-                style={{ fontSize: 12 }}
-                aria-hidden="true"></i>
-              {uploadSuccess}
-            </p>
-          )}
-
-          {!documentsLoading && documents.length === 0 && (
-            <p style={{ fontSize: 13, color: "#9a9a9a", marginTop: 12 }}>
-              No documents uploaded yet.
-            </p>
+              {notesPanelContent}
+            </>
           )}
         </div>
 
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            background: "#fafafa",
-            borderRadius: 12,
-            border: "0.5px solid #e5e5e5",
-            height: 560,
-            boxSizing: "border-box",
-          }}>
-          {messages.length > 0 && (
-            <div>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  padding: "12px 12px 10px",
-                }}>
-                <button
-                  onClick={handleClearConversation}
-                  className="clear-conversation-btn"
-                  style={{
-                    fontSize: 12,
-                    fontWeight: 500,
-                    color: "#4a4a4a",
-                    background: "white",
-                    border: "1px solid #d4d4d4",
-                    borderRadius: 8,
-                    padding: "6px 12px",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 5,
-                  }}>
-                  <i
-                    className="fa-solid fa-trash-can"
-                    style={{ fontSize: 12 }}
-                    aria-hidden="true"></i>
-                  Clear conversation
-                </button>
-              </div>
-              <div style={{ borderBottom: "0.5px solid #e0e0e0" }} />
-            </div>
-          )}
-          <div
-            style={{
-              flex: 1,
-              padding: 16,
-              overflowY: "auto",
-              display: "flex",
-              flexDirection: "column",
-              gap: 12,
-            }}>
-            {messages.length === 0 && (
-              <p style={{ fontSize: 15, color: "#4a4a4a", margin: "auto" }}>
-                Upload a document, then ask something about it.
-              </p>
-            )}
-            {messages.map((m, i) =>
-              m.role === "question" ? (
-                <div
-                  key={i}
-                  style={{
-                    alignSelf: "flex-end",
-                    background: "#1a1a1a",
-                    color: "white",
-                    borderRadius: "14px 14px 2px 14px",
-                    padding: "8px 12px",
-                    fontSize: 15,
-                    maxWidth: "75%",
-                  }}>
-                  {m.text}
-                </div>
-              ) : (
-                <div
-                  key={i}
-                  style={{
-                    alignSelf: "flex-start",
-                    background: "white",
-                    border: "0.5px solid #e5e5e5",
-                    borderRadius: "14px 14px 14px 2px",
-                    padding: "10px 12px",
-                    fontSize: 15,
-                    maxWidth: "85%",
-                    lineHeight: 1.5,
-                    color: "#1a1a1a",
-                  }}>
-                  {m.text}
-                  {m.sources && m.sources.length > 0 && (
-                    <div
-                      style={{
-                        marginTop: 8,
-                        display: "flex",
-                        flexWrap: "wrap",
-                        gap: 4,
-                      }}>
-                      {m.sources.map((s, si) => (
-                        <span
-                          key={si}
-                          title={s.content?.slice(0, 120)}
-                          style={{
-                            fontSize: 12,
-                            background: ACCENT_BG,
-                            color: ACCENT_DARK,
-                            borderRadius: 20,
-                            padding: "2px 8px",
-                            cursor: "default",
-                          }}>
-                          {s.source_document} ·{" "}
-                          {(s.similarity * 100).toFixed(0)}%
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ),
-            )}
-            {asking && (
-              <div
-                style={{
-                  alignSelf: "flex-start",
-                  fontSize: 14,
-                  color: "#6b6b6b",
-                }}>
-                Thinking...
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-
-          {askError && (
-            <p style={{ fontSize: 15, color: "#a32d2d", padding: "0 16px" }}>
-              {askError}
-            </p>
-          )}
-
-          <div
-            style={{
-              display: "flex",
-              gap: 8,
-              padding: 12,
-              borderTop: "0.5px solid #e5e5e5",
-            }}>
-            <input
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleAsk()}
-              placeholder="Ask a question about your notes..."
-              style={{
-                flex: 1,
-                fontSize: 15,
-                padding: "9px 12px",
-                borderRadius: 20,
-                border: "0.5px solid #d4d4d4",
-                outline: "none",
-              }}
-            />
-            <button
-              onClick={handleAsk}
-              disabled={asking || !question.trim()}
-              className="send-btn"
-              style={{
-                width: 38,
-                height: 38,
-                borderRadius: "50%",
-                border: "none",
-                background: ACCENT,
-                color: "white",
-                cursor: asking || !question.trim() ? "default" : "pointer",
-                opacity: asking || !question.trim() ? 0.4 : 1,
-                fontSize: 15,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                flexShrink: 0,
-                transition: "transform 0.1s ease, background 0.15s ease",
-              }}>
-              <i className="fa-solid fa-arrow-right" aria-hidden="true"></i>
-            </button>
-          </div>
-        </div>
+        {chatPanel}
       </div>
     </div>
   );
