@@ -562,7 +562,7 @@ export default function App() {
         className="fa-solid fa-sparkles"
         style={{ fontSize: 12 }}
         aria-hidden="true"></i>
-      {isMobile ? "Example" : "Try an example"}
+      Try an example
     </button>
   );
 
