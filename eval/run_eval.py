@@ -3,13 +3,19 @@ Runs the eval cases in eval_cases.py against a running RagNotes backend.
 
 Usage:
     1. Make sure the backend is running: uvicorn main:app --reload
-    2. From the ragnotes folder, run: python run_eval.py
+    2. From the ragnotes/eval folder, run: python3 run_eval.py
+
+Uses a dedicated, fixed session ID for eval runs, separate from any real
+browser session, so eval data never mixes with real usage data and each
+eval run starts from a consistent, known state.
 """
 
 import requests
 from eval_cases import EVAL_CASES
 
 BACKEND_URL = "http://localhost:8000"
+EVAL_SESSION_ID = "eval-suite-session"
+HEADERS = {"X-Session-Id": EVAL_SESSION_ID}
 
 
 def check_case(case: dict) -> tuple[bool, str]:
@@ -20,6 +26,7 @@ def check_case(case: dict) -> tuple[bool, str]:
                 "source_document": case["source_document"],
                 "text": case["upload_text"],
             },
+            headers=HEADERS,
             timeout=60,
         )
 
@@ -37,6 +44,7 @@ def check_case(case: dict) -> tuple[bool, str]:
     ask_response = requests.post(
         f"{BACKEND_URL}/ask",
         json={"question": case["question"]},
+        headers=HEADERS,
         timeout=60,
     )
 
